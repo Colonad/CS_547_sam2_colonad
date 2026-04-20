@@ -222,3 +222,130 @@ If you use SAM 2 or the SA-V dataset in your research, please use the following 
   year={2024}
 }
 ```
+
+
+---
+
+# CS 547 Project Information
+
+This repository is a fork created for a **CS 547 class project at SUNY Polytechnic Institute**.
+
+## Project Scope
+
+For this project, I used the official **SAM 2** repository to reproduce a key promptable video segmentation result on the **SA-V validation split** using the released **SAM 2.1** checkpoint.
+
+## Brief Description of Modifications
+
+The original repository was adapted for a CS 547 class project with the following practical modifications and documentation additions:
+
+- Added Windows/PowerShell-based experiment instructions
+- Documented how to download and use the **SAM 2.1** checkpoints on a public Windows machine without WSL
+- Documented how to run **Experiment 1** on the **SA-V validation split**
+- Documented a Windows-specific issue involving `Zone.Identifier` artifacts during evaluation and how to remove them safely
+- Recorded baseline reproduction results for Experiment 1
+
+## Environment / Setup Used for This Project
+
+This project was run in a conda environment on Windows PowerShell.
+
+Tested environment:
+- Python: 3.10
+- PyTorch: 2.5.1
+- CUDA available: True
+- GPU: NVIDIA RTX A4000
+
+Example setup:
+
+```powershell
+conda create -n sam2gpu python=3.10 -y
+conda activate sam2gpu
+pip install -e .
+```
+
+## Dataset Acquisition
+
+This project used the official **SA-V validation split**.
+
+Place the SA-V validation data in a folder such as:
+
+`C:\Users\Colonad\Desktop\CS547\sav_val`
+
+Expected structure:
+- `JPEGImages_24fps/`
+- `Annotations_6fps/`
+- `sav_val.txt`
+
+Please use the official SAM 2 / SA-V dataset instructions to acquire the dataset.
+
+## Checkpoint Used
+
+Experiment 1 used the following checkpoint and config:
+- Checkpoint: `checkpoints/sam2.1_hiera_base_plus.pt`
+- Config: `configs/sam2.1/sam2.1_hiera_b+.yaml`
+
+## Experiment 1 — Reproduction on SA-V Validation
+
+### Inference
+
+```powershell
+cd C:\Users\Colonad\Desktop\CS547\CS_547_sam2_colonad
+conda activate sam2gpu
+
+$SAV  = "C:\Users\Colonad\Desktop\CS547\sav_val"
+$VID  = Join-Path $SAV "JPEGImages_24fps"
+$GT   = Join-Path $SAV "Annotations_6fps"
+$LIST = Join-Path $SAV "sav_val.txt"
+
+$CFG  = "configs/sam2.1/sam2.1_hiera_b+.yaml"
+$CKPT = "checkpoints/sam2.1_hiera_base_plus.pt"
+$OUT  = "outputs\exp1_sav_val_pred"
+
+python .\tools\vos_inference.py `
+  --sam2_cfg $CFG `
+  --sam2_checkpoint $CKPT `
+  --base_video_dir $VID `
+  --input_mask_dir $GT `
+  --video_list_file $LIST `
+  --per_obj_png_file `
+  --output_mask_dir $OUT
+```
+
+### Evaluation
+
+```powershell
+cd C:\Users\Colonad\Desktop\CS547\CS_547_sam2_colonad
+conda activate sam2gpu
+
+$SAV  = "C:\Users\Colonad\Desktop\CS547\sav_val"
+$VID  = Join-Path $SAV "JPEGImages_24fps"
+$GT   = Join-Path $SAV "Annotations_6fps"
+$OUT  = (Resolve-Path "outputs\exp1_sav_val_pred").Path
+
+python .\sav_dataset\sav_evaluator.py --gt_root "$GT" --pred_root "$OUT" -n 1
+```
+
+## Experiment 1 Result
+
+Baseline reproduction result on **SA-V validation**:
+
+- **J&F = 77.7**
+- **J = 74.3**
+- **F = 81.1**
+- **Runtime = 1991.78 seconds**
+
+## Windows Evaluation Note
+
+On Windows, evaluation may fail if `Zone.Identifier` artifacts appear inside the dataset or output directories. Before evaluation, remove them with:
+
+```powershell
+Get-ChildItem -Recurse -Force "$GT"  | Where-Object { $_.Name -like "*Zone.Identifier*" } | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Recurse -Force "$VID" | Where-Object { $_.Name -like "*Zone.Identifier*" } | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Recurse -Force "$OUT" | Where-Object { $_.Name -like "*Zone.Identifier*" } | Remove-Item -Force -ErrorAction SilentlyContinue
+```
+
+## Notes
+
+- Large datasets, checkpoints, and generated prediction outputs should **not** be committed to the repository.
+- This fork is for course-project use only and is **not** intended as a pull request back to the original repository.
+
+---
