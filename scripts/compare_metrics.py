@@ -1,13 +1,30 @@
 import argparse
 import re
+from pathlib import Path
+
+
+def read_text_auto(path: str) -> str:
+    raw = Path(path).read_bytes()
+
+    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+        return raw.decode("utf-16")
+
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("utf-8", errors="ignore")
 
 
 def parse_metrics(path: str):
-    text = open(path, "r", encoding="utf-8", errors="ignore").read()
-    m = re.search(r"Global score:\s*J&F:\s*([0-9.]+)\s*J:\s*([0-9.]+)\s*F:\s*([0-9.]+)", text)
-    if m is None:
+    text = read_text_auto(path)
+
+    pattern = r"Global score:\s*J&F:\s*([0-9.]+)\s*J:\s*([0-9.]+)\s*F:\s*([0-9.]+)"
+    match = re.search(pattern, text)
+
+    if match is None:
         raise ValueError(f"Could not find Global score line in {path}")
-    jf, j, f = map(float, m.groups())
+
+    jf, j, f = map(float, match.groups())
     return {"J&F": jf, "J": j, "F": f}
 
 
@@ -23,9 +40,9 @@ def main():
     print("Metric comparison")
     print("-----------------")
     print(f"{'Metric':<8} {'Baseline':>10} {'New':>10} {'Delta':>10}")
-    for k in ["J&F", "J", "F"]:
-        delta = n[k] - b[k]
-        print(f"{k:<8} {b[k]:>10.1f} {n[k]:>10.1f} {delta:>10.1f}")
+    print(f"{'J&F':<8} {b['J&F']:>10.1f} {n['J&F']:>10.1f} {n['J&F'] - b['J&F']:>10.1f}")
+    print(f"{'J':<8}   {b['J']:>10.1f} {n['J']:>10.1f} {n['J'] - b['J']:>10.1f}")
+    print(f"{'F':<8}   {b['F']:>10.1f} {n['F']:>10.1f} {n['F'] - b['F']:>10.1f}")
 
 
 if __name__ == "__main__":
