@@ -349,3 +349,91 @@ Get-ChildItem -Recurse -Force "$OUT" | Where-Object { $_.Name -like "*Zone.Ident
 - This fork is for course-project use only and is **not** intended as a pull request back to the original repository.
 
 ---
+
+## Experiment 2 — New Results: Post-Processing Modification on SA-V Validation
+
+### Modification Summary
+
+For Experiment 2, I made a non-trivial modification to the prediction pipeline by adding a **mask post-processing stage** after the original SAM 2 inference output.
+
+The post-processing pipeline applies the following operations to the predicted masks:
+
+- hole filling
+- removal of small connected components
+- light morphological closing
+- temporal smoothing across neighboring frames
+
+The goal of this modification was to reduce noisy mask artifacts and improve temporal consistency in the final segmentation output.
+
+### New Files Added for Experiment 2
+
+The following files were added for this experiment:
+
+- `scripts/postprocess_sav_masks.py`
+- `scripts/compare_metrics.py`
+- `scripts/run_exp2_postprocess.ps1`
+
+### How to Run Experiment 2
+
+#### Step 1: Start from the Experiment 1 baseline predictions
+
+Experiment 2 assumes that Experiment 1 has already been run and that the baseline predictions already exist in:
+
+`outputs\exp1_sav_val_pred`
+
+#### Step 2: Run the post-processing pipeline and evaluate
+
+```powershell
+cd C:\Users\Colonad\Desktop\CS547\CS_547_sam2_colonad
+conda activate sam2gpu
+powershell -ExecutionPolicy Bypass -File .\scripts\run_exp2_postprocess.ps1
+```
+
+This script does the following:
+
+1. reads the baseline predictions from `outputs\exp1_sav_val_pred`
+2. applies the post-processing pipeline
+3. writes the new predictions to `outputs\exp2_sav_val_postprocessed`
+4. evaluates the new predictions on SA-V validation
+5. compares the new metrics against the Experiment 1 baseline
+
+### Experiment 2 Result
+
+Post-processed result on **SA-V validation**:
+
+- **J&F = 75.6**
+- **J = 71.7**
+- **F = 79.4**
+- **Runtime = 1518.00 seconds**
+
+### Before / After Comparison
+
+| Experiment | Dataset | J&F | J | F |
+|---|---|---:|---:|---:|
+| Experiment 1 Baseline | SA-V validation | 77.7 | 74.3 | 81.1 |
+| Experiment 2 Postprocessed | SA-V validation | 75.6 | 71.7 | 79.4 |
+
+### Delta from Baseline
+
+| Metric | Change |
+|---|---:|
+| J&F | -2.1 |
+| J | -2.6 |
+| F | -1.7 |
+
+### Interpretation
+
+This modification **did not improve** the baseline result.
+
+Although the post-processing pipeline was intended to clean noisy masks and improve temporal consistency, it appears to have been too aggressive for the SA-V validation set. In particular, the morphological cleanup and temporal smoothing likely removed useful fine structure and hurt accuracy on small objects, thin boundaries, or rapidly changing masks.
+
+This result is still useful: it shows that post-processing is a meaningful design choice, but that stronger smoothing does not automatically improve segmentation quality. In this case, the original SAM 2 baseline performed better than the modified pipeline.
+
+### Notes
+
+- Experiment 2 was run on the same **SA-V validation split** as Experiment 1.
+- The same baseline checkpoint and config were used:
+  - `checkpoints/sam2.1_hiera_base_plus.pt`
+  - `configs/sam2.1/sam2.1_hiera_b+.yaml`
+- This keeps the comparison fair by changing only the post-processing stage.
+- As with Experiment 1, large datasets, checkpoints, and generated outputs should not be committed to the repository.
